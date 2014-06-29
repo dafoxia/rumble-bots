@@ -139,10 +139,15 @@ class InterConnectBot
 							speakersize = @cli.m2m_getsize speaker
 							maxsize =  speakersize if speakersize >= maxsize
 							if maxsize >= 2 then
-								frame = @cli.m2m_getframe speaker														# write 1st frame to bot
-								@activebots[speaker].m2m_writeframe frame											
-								frame = @cli.m2m_getframe speaker														# write 2nd frame to bot
-								@activebots[speaker].m2m_writeframe frame											
+								frame1 = @cli.m2m_getframe speaker														# write 1st frame to bot
+								frame2 = @cli.m2m_getframe speaker	
+								if frame1.size >= frame2.size then														# write 2nd frame to bot
+									@activebots[speaker].m2m_writeframe frame1											
+									@activebots[speaker].m2m_writeframe frame2
+								else
+									@activebots[speaker].m2m_writeframe frame2
+									@activebots[speaker].m2m_writeframe frame1
+								end
 								@mychilds[speaker] = Time.now
 								case maxsize
 									when 20..40																			# message to console (high buffer size)
@@ -152,8 +157,8 @@ class InterConnectBot
 									when 60..199																			# message to console (high buffer size)
 										puts( maxsize.to_s + ' packets (too many) for session: ' + speaker.to_s) 
 									when 200..(1.0/0.0)
-										(0..190).each do																# we will them could not play anymore
-											@cli.m2m_getframe speaker													# drop the next 190. (95% / 3.8 sec.) 
+										(0..100).each do																# we will them could not play anymore
+											@cli.m2m_getframe speaker													# drop the next 100. (50% / 2 sec.) 
 										end																				# 5% / 0.2 sec. leave in buffer.
 										puts "frames dropped from speaker with session: " + speaker.to_s 				# message to console
 								end
@@ -166,6 +171,7 @@ class InterConnectBot
 				end
 			end
 		end
+		sleep 0.001
 		if maxsize == 0 then 
 			sleep 0.005
 		end
