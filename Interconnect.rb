@@ -123,7 +123,7 @@ class InterConnectBot
 				sleep(1)																								# wait some time until we can join
 				@activebots[index].mumble2mumble false																	# activate bot
 			end
-			@activebots[index].join_channel(@homechannel)															# join channel
+			@activebots[index].join_channel(@homechannel)																# join channel
 		end
 		sleep 0.5
 	end
@@ -135,8 +135,16 @@ class InterConnectBot
 			if speaker != nil then
 				if ( @cli.users.values_at(speaker).[](0).name[0..(@otherprefix.size - 1)] != @otherprefix ) then		# real user
 					if @activebots[speaker] != nil then																	# if bot exist
-						if ( @activebots[speaker].connected ) then															# and connected
-							maxsize = @cli.m2m_getsize speaker if @cli.m2m_getsize(speaker) >= maxsize
+						if ( @activebots[speaker].connected ) then														# and connected
+							speakersize = @cli.m2m_getsize speaker
+							maxsize =  speakersize if speakersize >= maxsize
+							puts('high buffer (' + maxsize.to_s + ') for session: ' + speaker.to_s) if speakersize >= 20
+							if speakersize > 200 then																	# if queue is too long! (more than 200 packets)
+								(0..190).each do																		# we will them could not play anymore
+									@cli.m2m_getframe speaker															# drop the next 190. (95% / 3.8 sec.) 
+								end																						# 5% / 0.2 sec. leave in buffer.
+								puts "frames dropped from speaker with session: " + speaker.to_s 
+							end
 							frame = @cli.m2m_getframe speaker															# try to get audio frame from speaker
 							if frame != nil then																		# if success
 								if @activebots[speaker].current_channel != @channelid then
@@ -165,8 +173,8 @@ end
 
 @prefix = '_InterConnect_'
 
-client0 = InterConnectBot.new @prefix, 30000, "soa.chickenkiller.com", 64739					# Prefix is the Botname AND the prefix for each child! The number is the desired Bandwidth for this Bot for _UPLINK_!
-client1 = InterConnectBot.new @prefix, 72000, "localhost", 64738								# Downlink Bandwidth we could not choose!
+client0 = InterConnectBot.new @prefix, 38000, "soa.chickenkiller.com", 64739					 	# Prefix is the Botname AND the prefix for each child! The number is the desired Bandwidth for this Bot for _UPLINK_!
+client1 = InterConnectBot.new @prefix, 38000, "192.168.1.213", 64738								# Downlink Bandwidth we could not choose!
 sleep(1)
 
 client0.connect 'uplink', 'Root', 'Root', client1.intercon_host, client1.intercon_port				# Bot connect from uplink to uplink foreign host -> Audio flows this way! Bot will send with 50kbps Opus-Audio to Client1 !!!
