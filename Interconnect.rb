@@ -138,19 +138,25 @@ class InterConnectBot
 						if ( @activebots[speaker].connected ) then														# and connected
 							speakersize = @cli.m2m_getsize speaker
 							maxsize =  speakersize if speakersize >= maxsize
-							puts('high buffer (' + maxsize.to_s + ') for session: ' + speaker.to_s) if speakersize >= 20
-							if speakersize > 200 then																	# if queue is too long! (more than 200 packets)
-								(0..190).each do																		# we will them could not play anymore
-									@cli.m2m_getframe speaker															# drop the next 190. (95% / 3.8 sec.) 
-								end																						# 5% / 0.2 sec. leave in buffer.
-								puts "frames dropped from speaker with session: " + speaker.to_s 
-							end
-							frame = @cli.m2m_getframe speaker															# try to get audio frame from speaker
-							if frame != nil then																		# if success
-								if @activebots[speaker].current_channel != @channelid then
-								end
-								@activebots[speaker].m2m_writeframe frame												# write it to bot
+							if maxsize >= 2 then
+								frame = @cli.m2m_getframe speaker														# write 1st frame to bot
+								@activebots[speaker].m2m_writeframe frame											
+								frame = @cli.m2m_getframe speaker														# write 2nd frame to bot
+								@activebots[speaker].m2m_writeframe frame											
 								@mychilds[speaker] = Time.now
+								case maxsize
+									when 20..40																			# message to console (high buffer size)
+										puts('     high buffer for session: ' + speaker.to_s) 
+									when 40..60																			# message to console (high buffer size)
+										puts('very high buffer for session: ' + speaker.to_s) 
+									when 60..199																			# message to console (high buffer size)
+										puts( maxsize.to_s + ' packets (too many) for session: ' + speaker.to_s) 
+									when 200..(1.0/0.0)
+										(0..190).each do																# we will them could not play anymore
+											@cli.m2m_getframe speaker													# drop the next 190. (95% / 3.8 sec.) 
+										end																				# 5% / 0.2 sec. leave in buffer.
+										puts "frames dropped from speaker with session: " + speaker.to_s 				# message to console
+								end
 							end
 						end
 						@conn_and_join << speaker																		# of not connected - fill in in connect queue
@@ -161,7 +167,7 @@ class InterConnectBot
 			end
 		end
 		if maxsize == 0 then 
-			sleep (0.002)
+			sleep 0.005
 		end
 	end
 
@@ -173,8 +179,8 @@ end
 
 @prefix = '_InterConnect_'
 
-client0 = InterConnectBot.new @prefix, 38000, "soa.chickenkiller.com", 64739					 	# Prefix is the Botname AND the prefix for each child! The number is the desired Bandwidth for this Bot for _UPLINK_!
-client1 = InterConnectBot.new @prefix, 38000, "192.168.1.213", 64738								# Downlink Bandwidth we could not choose!
+client0 = InterConnectBot.new @prefix, 0, "soa.chickenkiller.com", 64739					 	# Prefix is the Botname AND the prefix for each child! The number is the desired Bandwidth for this Bot for _UPLINK_!
+client1 = InterConnectBot.new @prefix, 0, "192.168.1.213", 64738								# Downlink Bandwidth we could not choose!
 sleep(1)
 
 client0.connect 'uplink', 'Root', 'Root', client1.intercon_host, client1.intercon_port				# Bot connect from uplink to uplink foreign host -> Audio flows this way! Bot will send with 50kbps Opus-Audio to Client1 !!!
