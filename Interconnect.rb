@@ -24,6 +24,7 @@
 require "mumble-ruby"
 require 'rubygems'
 require 'thread'
+require 'benchmark'
 
 class InterConnectBot
     def initialize botname, bitrate, host, port
@@ -49,6 +50,7 @@ class InterConnectBot
 
 	def connect channel, channel2, away, foreignhost, foreignport
 		@homechannel = channel2
+		@mchan = channel
 		@foreignhost = foreignhost
 		@foreignport = foreignport
         @cli.connect
@@ -95,16 +97,17 @@ class InterConnectBot
 	
 	def termbots
 		@mychilds.each_with_index do |zeit, index|
-			if zeit != nil then
-				if ( Time.now - zeit ) > 20 then
-					@activebots[index].join_channel(@away)
-				end
+			if ( zeit != nil ) && @activebots[index].connected then
+				@activebots[index].join_channel(@away) if  ( ( Time.now - zeit ) >= 20 ) 								# go to away if 20 seconds no audio from user appeared
+				@activebots[index].disconnect if ( ( Time.now - zeit) >= 200 ) 											# disconnect bot if 200 seconds no audio from user appeared
 			end
 		end
 		sleep 1
+		
 	end
 	
 	def	speakerworker
+		begin
 		while @create.size >= 1 do 																						# if create-queue is not empty
 			index = @create.pop																							# pop a user session number
 			if (@activebots[index] == nil) then																			# if bot not exist
@@ -123,7 +126,13 @@ class InterConnectBot
 				sleep(1)																								# wait some time until we can join
 				@activebots[index].mumble2mumble false																	# activate bot
 			end
-			@activebots[index].join_channel(@homechannel)																# join channel
+			while @activebots[index].current_channel == nil 
+				@activebots[index].join_channel(@homechannel)																# join channel
+				sleep 1
+			end
+		end
+		rescue
+			puts "user exists, we have to wait..."
 		end
 		sleep 0.5
 	end
@@ -131,49 +140,41 @@ class InterConnectBot
 	def playit 
 		speakers = @cli.m2m_getspeakers
 		maxsize =0
-		speakers.each do |speaker|
-			if speaker != nil then
-				if ( @cli.users.values_at(speaker).[](0).name[0..(@otherprefix.size - 1)] != @otherprefix ) then		# real user
-					if @activebots[speaker] != nil then																	# if bot exist
-						if ( @activebots[speaker].connected ) then														# and connected
-							speakersize = @cli.m2m_getsize speaker
-							maxsize =  speakersize if speakersize >= maxsize
-							if maxsize >= 2 then
-								frame1 = @cli.m2m_getframe speaker														# write 1st frame to bot
-								frame2 = @cli.m2m_getframe speaker	
-								if frame1.size >= frame2.size then														# write 2nd frame to bot
-									@activebots[speaker].m2m_writeframe frame1											
-									@activebots[speaker].m2m_writeframe frame2
-								else
-									@activebots[speaker].m2m_writeframe frame2
-									@activebots[speaker].m2m_writeframe frame1
-								end
-								@mychilds[speaker] = Time.now
-								case maxsize
-									when 20..40																			# message to console (high buffer size)
-										puts('     high buffer for session: ' + speaker.to_s) 
-									when 40..60																			# message to console (high buffer size)
-										puts('very high buffer for session: ' + speaker.to_s) 
-									when 60..199																			# message to console (high buffer size)
-										puts( maxsize.to_s + ' packets (too many) for session: ' + speaker.to_s) 
-									when 200..(1.0/0.0)
-										(0..100).each do																# we will them could not play anymore
-											@cli.m2m_getframe speaker													# drop the next 100. (50% / 2 sec.) 
-										end																				# 5% / 0.2 sec. leave in buffer.
-										puts "frames dropped from speaker with session: " + speaker.to_s 				# message to console
+		x = Benchmark.measure { 
+		speakers.each do |sessionid|
+			if ( sessionid != nil ) then
+				if ( @cli.users.values_at(sessionid).[](0) != nil ) then
+					if ( @cli.users.values_at(sessionid).[](0).name[0..(@otherprefix.size - 1)] != @otherprefix ) then		# real user
+						if @activebots[sessionid] != nil then																# if bot exist
+							if ( @activebots[sessionid].connected ) then													# and connected
+								speakersize = @cli.m2m_getsize sessionid
+								maxsize =  speakersize if speakersize >= maxsize
+								if maxsize >= 2 then
+									@activebots[sessionid].join_channel(@homechannel) if @activebots[sessionid].current_channel != @homechannel 
+									frame1 = @cli.m2m_getframe sessionid											
+									frame2 = @cli.m2m_getframe sessionid	
+									if ( frame1.is_a? String ) && ( frame2.is_a? Integer ) then						
+										@activebots[sessionid].m2m_writeframe frame1 
+										@activebots[sessionid].m2m_writeframe frame2
+									else
+										puts "Packet LOST!"
+									end
+									@mychilds[sessionid] = Time.now
 								end
 							end
+							@conn_and_join << sessionid																		# of not connected - fill in in connect queue
+						else																								# if bot not exist
+							@create << sessionid																			# fill in create queue
 						end
-						@conn_and_join << speaker																		# of not connected - fill in in connect queue
-					else																								# if bot not exist
-						@create << speaker																				# fill in create queue
 					end
 				end
 			end
 		end
-		sleep 0.001
-		if maxsize == 0 then 
-			sleep 0.005
+		}
+		if ( 0.007 - x.real ) >= 0 then																						# full loop time should not exceed 0.01 s ( 10 ms)
+			sleep  ( 0.007 - x.real ) 																						# we'll keep it slightly shorter that we can hurry up if need
+		else
+			puts x.real.to_s + ' sec. critical (to long).'
 		end
 	end
 
@@ -183,22 +184,24 @@ class InterConnectBot
     
 end
 
+
 @prefix = '_InterConnect_'
 
-client0 = InterConnectBot.new @prefix, 0, "soa.chickenkiller.com", 64739					 	# Prefix is the Botname AND the prefix for each child! The number is the desired Bandwidth for this Bot for _UPLINK_!
-client1 = InterConnectBot.new @prefix, 0, "192.168.1.213", 64738								# Downlink Bandwidth we could not choose!
+client0 = InterConnectBot.new @prefix, 0, "soa.chickenkiller.com", 64739						 	# Prefix is the Botname AND the prefix for each child! The number is the desired Bandwidth for this Bot for _UPLINK_!
+client1 = InterConnectBot.new @prefix, 0, "192.168.1.213", 64738									# Downlink Bandwidth we could not choose!
 sleep(1)
 
-client0.connect 'uplink', 'Root', 'Root', client1.intercon_host, client1.intercon_port				# Bot connect from uplink to uplink foreign host -> Audio flows this way! Bot will send with 50kbps Opus-Audio to Client1 !!!
-client1.connect 'Root', 'uplink', 'away', client0.intercon_host, client0.intercon_port				# Bot connect from uplink to uplink foreign host -> same flow direction as above. Sending with 72kbps Opus to Client0 !!!
+client0.connect 'uplink', 'test', 'test', client1.intercon_host, client1.intercon_port				# Bot connect from uplink to uplink foreign host -> Audio flows this way! Bot will send with 50kbps Opus-Audio to Client1 !!!
+client1.connect 'test', 'uplink', 'away', client0.intercon_host, client0.intercon_port				# Bot connect from uplink to uplink foreign host -> same flow direction as above. Sending with 72kbps Opus to Client0 !!!
 sleep (1)
 
 client0.get_ready 
 client1.get_ready
 sleep(1)
 
-client0.run @prefix
 client1.run @prefix
+sleep(1)
+client0.run @prefix
 puts "running...  ctrl-d to end!"
 
 begin
