@@ -1,5 +1,12 @@
 #!/usr/bin/env ruby
 
+
+#
+#					D E P R E C A T E D !
+#
+
+
+
 # Inspired from https://github.com/SuperTux88/mumble-bots/blob/master/mumble-music.rb and changed, and changed, and changed
 # maybe Code differs more then parts are similar. BTW! only a part of this code is grown in my own brain :@)
 
@@ -19,6 +26,10 @@
 #
 # I'm sure more help will be find on Natenom's Sites soon. ( http://natenom.name/ )
 #
+#
+
+#
+#					D E P R E C A T E D !
 #
 
 require "mumble-ruby"
