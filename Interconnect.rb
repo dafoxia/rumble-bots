@@ -27,7 +27,8 @@ require 'thread'
 require 'benchmark'
 
 class InterConnectBot
-    def initialize botname, bitrate, host, port
+	attr_reader :cli
+    def initialize botname, bitrate, host, port, tcpport
 		@host =	host
 		@port = port
 		
@@ -45,6 +46,7 @@ class InterConnectBot
 		@conn_and_join	= Queue.new
 		@create	= Queue.new
 		@mychilds = []
+		@tcpserver = TCPServer.new tcpport
 
     end
 
@@ -93,8 +95,7 @@ class InterConnectBot
 		spawn_thread :termbots
 		spawn_thread :speakerworker
 	end
-	
-	
+
 	def termbots
 		@mychilds.each_with_index do |zeit, index|
 			if ( zeit != nil ) && @activebots[index].connected then
@@ -107,11 +108,10 @@ class InterConnectBot
 	end
 	
 	def	speakerworker
-		begin
 		while @create.size >= 1 do 																						# if create-queue is not empty
 			index = @create.pop																							# pop a user session number
 			if (@activebots[index] == nil) then																			# if bot not exist
-				@activebots[index] = Mumble::Client.new(@foreignhost, @foreignport) do |conf|								# create bot socket
+				@activebots[index] = Mumble::Client.new(@foreignhost, @foreignport) do |conf|							# create bot socket
 					conf.username = @prefix + @cli.users.values_at(index).[](0).name
 					conf.password = ""
 					conf.bitrate = @bitrate
@@ -125,14 +125,13 @@ class InterConnectBot
 				@activebots[index].connect																				# connect it to server
 				sleep(1)																								# wait some time until we can join
 				@activebots[index].mumble2mumble false																	# activate bot
+				msg = @activebots[index].get_imgmsg('./icons/m2muser.png')
+				@activebots[index].set_comment msg
 			end
 			while @activebots[index].current_channel == nil 
-				@activebots[index].join_channel(@homechannel)																# join channel
+				@activebots[index].join_channel(@homechannel)															# join channel
 				sleep 1
 			end
-		end
-		rescue
-			puts "user exists, we have to wait..."
 		end
 		sleep 0.5
 	end
@@ -185,23 +184,29 @@ class InterConnectBot
 end
 
 
-@prefix = '_InterConnect_'
+@prefix0 = '_ICU_'
+@prefix1 = '_ICD_'
 
-client0 = InterConnectBot.new @prefix, 0, "soa.chickenkiller.com", 64739						 	# Prefix is the Botname AND the prefix for each child! The number is the desired Bandwidth for this Bot for _UPLINK_!
-client1 = InterConnectBot.new @prefix, 0, "192.168.1.213", 64738									# Downlink Bandwidth we could not choose!
+client0 = InterConnectBot.new @prefix0, 36000, "soa.chickenkiller.com", 64739, 6739					 	# Prefix is the Botname AND the prefix for each child! The number is the desired Bandwidth for this Bot for _UPLINK_!
+client1 = InterConnectBot.new @prefix1, 72000, "soa.chickenkiller.com", 64739, 6740						# Downlink Bandwidth we could not choose!
 sleep(1)
 
-client0.connect 'uplink', 'test', 'test', client1.intercon_host, client1.intercon_port				# Bot connect from uplink to uplink foreign host -> Audio flows this way! Bot will send with 50kbps Opus-Audio to Client1 !!!
-client1.connect 'test', 'uplink', 'away', client0.intercon_host, client0.intercon_port				# Bot connect from uplink to uplink foreign host -> same flow direction as above. Sending with 72kbps Opus to Client0 !!!
+client0.connect 'uplink', 'downlink', 'away', client1.intercon_host, client1.intercon_port				# Bot connect from uplink to uplink foreign host -> Audio flows this way! Bot will send with 50kbps Opus-Audio to Client1 !!!
+client1.connect 'downlink', 'uplink', 'away', client0.intercon_host, client0.intercon_port				# Bot connect from uplink to uplink foreign host -> same flow direction as above. Sending with 72kbps Opus to Client0 !!!
 sleep (1)
 
 client0.get_ready 
 client1.get_ready
 sleep(1)
 
-client1.run @prefix
+client1.run @prefix0
+client0.run @prefix1
 sleep(1)
-client0.run @prefix
+
+msg0 = '<h1>Interconnect-Bot</h1><br />connected to ' + client1.intercon_host.to_s + ' Port: ' + client1.intercon_port.to_s + '<br />' + client0.cli.get_imgmsg('./icons/mumble2mumble256x256.png')
+msg1 = '<h1>Interconnect-Bot</h1><br />connected to ' + client0.intercon_host.to_s + ' Port: ' + client0.intercon_port.to_s + '<br />' + client0.cli.get_imgmsg('./icons/mumble2mumble256x256.png')
+client0.cli.set_comment msg0
+client1.cli.set_comment msg1
 puts "running...  ctrl-d to end!"
 
 begin
