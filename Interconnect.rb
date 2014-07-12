@@ -137,16 +137,10 @@ class InterConnectBot
 								if ( @activebots[sessionid].connected ) then													# and connected
 									speakersize = @cli.m2m_getsize sessionid
 									maxsize =  speakersize if speakersize >= maxsize
-									if maxsize >= 2 then
+									if maxsize >= 1 then
 										@activebots[sessionid].join_channel(@homechannel) if @activebots[sessionid].current_channel != @homechannel 
-										frame1 = @cli.m2m_getframe sessionid											
-										frame2 = @cli.m2m_getframe sessionid	
-										if ( frame1.is_a? String ) && ( frame2.is_a? Integer ) then						
-											@activebots[sessionid].m2m_writeframe frame1 
-											@activebots[sessionid].m2m_writeframe frame2
-										else
-											puts "Packet LOST!"
-										end
+										frame = @cli.m2m_getframe sessionid											
+										@activebots[sessionid].m2m_writeframe frame 
 										@mychilds[sessionid] = Time.now
 									end
 								end
@@ -175,7 +169,7 @@ end
 
 @server1_name = "soa.chickenkiller.com"
 @server1_port = 64739
-@server1_bitrate = 0
+@server1_bitrate = 72000
 @server1_channel = "NatenomConnect"
 @server1_awaychan = "away"
 @server1_time2away = 60
@@ -184,7 +178,7 @@ end
 
 @server2_name = "soa.chickenkiller.com"
 @server2_port = 64739
-@server2_bitrate = 0
+@server2_bitrate = 72000
 @server2_channel = "Interconnect"
 @server2_awaychan = "Interconnect"
 @server2_time2away = 60
