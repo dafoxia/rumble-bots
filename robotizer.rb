@@ -13,7 +13,7 @@
 # You have to checkout 
 #	*	https://github.com/dafoxia/opus-ruby
 #	*	https://github.com/dafoxia/mumble-ruby
-# 			-> master branch!
+# 			-> mumble2mumble branch!
 #
 # Build and install gem opus-ruby first, then mumble-ruby
 #
@@ -26,7 +26,7 @@ require 'rubygems'
 require 'thread'
 require 'benchmark'
 
-class InterConnectBot
+class RobotizerBot
 	attr_reader :cli, :host, :port
 	attr_writer :awaytime, :disconnecttime
     def initialize botname, bitrate, host, port
@@ -47,7 +47,15 @@ class InterConnectBot
 		@conn_and_join	= Queue.new
 		@create	= Queue.new
 		@mychilds = []
-
+		@modulator = []
+		(1..120).each do |count|
+			@modulator[count-1] = 12.0 / count
+			puts @modulator[count-1]
+		end
+		@modulator += @modulator
+		@modulator += @modulator
+		@modulator += @modulator
+		@modulator += @modulator
     end
 
 	def connect channel, channel2, away, foreignhost, foreignport
@@ -60,7 +68,7 @@ class InterConnectBot
 		while !@cli.ready
 		end
         @cli.join_channel(channel)
-		@channelid = @cli.me.current_channel
+		@channelid = @cli.current_channel
 		@cli.on_text_message do |msg|
 			begin
 				message = msg.message.split(' ')
@@ -87,7 +95,7 @@ class InterConnectBot
 
 	def termbots
 		@mychilds.each_with_index do |zeit, index|
-			if ( zeit != nil ) && @activebots[index].connected? then
+			if ( zeit != nil ) && @activebots[index].connected then
 				@activebots[index].join_channel(@away) if  ( ( Time.now - zeit ) >= @awaytime )							# go to away if @awaytime seconds no audio from user appeared
 				@activebots[index].disconnect if ( ( Time.now - zeit) >= @disconnecttime ) 								# disconnect bot if @disconnecttime seconds no audio from user appeared
 			end
@@ -110,7 +118,7 @@ class InterConnectBot
 		
 		while @conn_and_join.size >= 1 do																				# if conn and join queue is not empty
 			index = @conn_and_join.pop																					# pop a user session number
-			if @activebots[index].connected? == false then																# if bot not connected
+			if @activebots[index].connected == false then																# if bot not connected
 				@activebots[index].connect																				# connect it to server
 				while !@activebots[index].ready
 				end																										# wait until we can join
@@ -118,7 +126,7 @@ class InterConnectBot
 				msg = @activebots[index].get_imgmsg('./icons/m2muser.png')
 				@activebots[index].set_comment msg
 			end
-			while @activebots[index].me.current_channel == nil 
+			while @activebots[index].current_channel == nil 
 				@activebots[index].join_channel(@homechannel)															# join channel
 			end
 		end
@@ -134,13 +142,19 @@ class InterConnectBot
 					if ( @cli.users.values_at(sessionid).[](0) != nil ) then
 						if ( @cli.users.values_at(sessionid).[](0).name[0..(@otherprefix.size - 1)] != @otherprefix ) then		# real user
 							if @activebots[sessionid] != nil then																# if bot exist
-								if ( @activebots[sessionid].connected? ) then													# and connected
+								if ( @activebots[sessionid].connected ) then													# and connected
 									speakersize = @cli.m2m_getsize sessionid
 									maxsize =  speakersize if speakersize >= maxsize
 									if maxsize >= 1 then
-										@activebots[sessionid].join_channel(@homechannel) if @activebots[sessionid].me.current_channel != @homechannel 
-										frame = @cli.m2m_getframe sessionid											
-										@activebots[sessionid].m2m_writeframe frame 
+										@activebots[sessionid].join_channel(@homechannel) if @activebots[sessionid].current_channel != @homechannel 
+										frame = ( @cli.m2m_getframe ( sessionid ) ).unpack ('s*')
+										newframe = []
+										frame.each_with_index do |sample, index|
+											sample = sample * ( (index % 120) / 60)
+											newframe << sample
+										end
+										frame = newframe.pack('s*')
+										@activebots[sessionid].m2m_writeframe frame
 										@mychilds[sessionid] = Time.now
 									end
 								end
@@ -174,7 +188,7 @@ end
 @server1_awaychan = "away"
 @server1_time2away = 60
 @server1_time2disconnect = 120
-@server1_BotName = '↯' +@server1_name + '↯'
+@server1_BotName = '1' +@server1_name + '_'
 
 @server2_name = "soa.chickenkiller.com"
 @server2_port = 64739
@@ -183,12 +197,12 @@ end
 @server2_awaychan = "Interconnect"
 @server2_time2away = 60
 @server2_time2disconnect = 120
-@server2_BotName = 'ᛏ' +@server2_name + 'ᛏ'
+@server2_BotName = '2' +@server2_name + '_'
 
 # BOT-NAME has to be different when spawn on one server!
 
-client1 = InterConnectBot.new @server1_BotName, @server2_bitrate, @server1_name, @server1_port
-client2 = InterConnectBot.new @server2_BotName, @server1_bitrate, @server2_name, @server2_port
+client1 = RobotizerBot.new @server1_BotName, @server2_bitrate, @server1_name, @server1_port
+client2 = RobotizerBot.new @server2_BotName, @server1_bitrate, @server2_name, @server2_port
 
 client1.connect @server1_channel, @server2_channel, @server2_awaychan, client2.host, client2.port
 client2.connect @server2_channel, @server1_channel, @server1_awaychan, client1.host, client1.port
