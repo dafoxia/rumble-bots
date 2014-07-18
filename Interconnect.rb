@@ -13,7 +13,7 @@
 # You have to checkout 
 #	*	https://github.com/dafoxia/opus-ruby
 #	*	https://github.com/dafoxia/mumble-ruby
-# 			-> master branch!
+# 			-> mumble2mumble branch!
 #
 # Build and install gem opus-ruby first, then mumble-ruby
 #
@@ -47,7 +47,9 @@ class InterConnectBot
 		@conn_and_join	= Queue.new
 		@create	= Queue.new
 		@mychilds = []
-
+		@jointime = 0
+		@last = 0
+		@last3 = 0
     end
 
 	def connect channel, channel2, away, foreignhost, foreignport
@@ -60,7 +62,7 @@ class InterConnectBot
 		while !@cli.ready
 		end
         @cli.join_channel(channel)
-		@channelid = @cli.me.current_channel
+		@channelid = @cli.me.channel_id
 		@cli.on_text_message do |msg|
 			begin
 				message = msg.message.split(' ')
@@ -115,11 +117,14 @@ class InterConnectBot
 				while !@activebots[index].ready
 				end																										# wait until we can join
 				@activebots[index].mumble2mumble false																	# activate bot
-				msg = @activebots[index].get_imgmsg('./icons/m2muser.png')
-				@activebots[index].set_comment msg
+				#msg = @activebots[index].get_imgmsg('./icons/m2muser.png')
+				#@activebots[index].set_comment msg
 			end
-			while @activebots[index].me.current_channel == nil 
-				@activebots[index].join_channel(@homechannel)															# join channel
+			while @activebots[index].me.channel_id == nil 
+				if (@jointime.to_f + 0.5) <= Time.now.to_f then
+					@jointime = Time.new
+					@activebots[index].join_channel(@homechannel)															# join channel
+				end
 			end
 		end
 		sleep 0.1
@@ -130,33 +135,33 @@ class InterConnectBot
 		maxsize =0
 		x = Benchmark.measure { 
 			speakers.each do |sessionid|
-				if ( sessionid != nil ) then
-					if ( @cli.users.values_at(sessionid).[](0) != nil ) then
-						if ( @cli.users.values_at(sessionid).[](0).name[0..(@otherprefix.size - 1)] != @otherprefix ) then		# real user
-							if @activebots[sessionid] != nil then																# if bot exist
-								if ( @activebots[sessionid].connected? ) then													# and connected
-									speakersize = @cli.m2m_getsize sessionid
-									maxsize =  speakersize if speakersize >= maxsize
-									if maxsize >= 1 then
-										@activebots[sessionid].join_channel(@homechannel) if @activebots[sessionid].me.current_channel != @homechannel 
-										frame = @cli.m2m_getframe sessionid											
-										@activebots[sessionid].m2m_writeframe frame 
-										@mychilds[sessionid] = Time.now
-									end
+				if ( @cli.users.values_at(sessionid).[](0) != nil ) then
+					if ( @cli.users.values_at(sessionid).[](0).name[0..(@otherprefix.size - 1)] != @otherprefix ) then		# real user
+						if @activebots[sessionid] != nil then																# if bot exist
+							if ( @activebots[sessionid].connected? ) then													# and connected
+								speakersize = @cli.m2m_getsize sessionid
+								maxsize =  speakersize if speakersize >= maxsize
+								if maxsize >= 1 then
+									@activebots[sessionid].join_channel(@homechannel) if @activebots[sessionid].me.channel_id != @homechannel 
+									frame = @cli.m2m_getframe sessionid		
+									@activebots[sessionid].m2m_writeframe frame 
+									@mychilds[sessionid] = Time.now
 								end
-								@conn_and_join << sessionid																		# of not connected - fill in in connect queue
-							else																								# if bot not exist
-								@create << sessionid																			# fill in create queue
 							end
+							@conn_and_join << sessionid																		# of not connected - fill in in connect queue
+						else																								# if bot not exist
+							@create << sessionid																			# fill in create queue
 						end
 					end
 				end
 			end
 		}
-		if ( 0.007 - x.real ) >= 0 then																						# full loop time should not exceed 0.01 s ( 10 ms)
-			sleep  ( 0.007 - x.real ) 																						# we'll keep it slightly shorter that we can hurry up if need
+		@last = ( @last * 9 + x.real ) / 10
+		@last3 = ( @last *2 + x.real ) / 3
+		if ( 0.005 - x.real ) >= 0 then																						# full loop time should not exceed 0.01 s ( 10 ms)
+			sleep  ( 0.005 - x.real ) 																						# we'll keep it slightly shorter that we can hurry up if need
 		else
-			puts x.real.to_s + ' sec. critical (to long).'
+			puts x.real.to_s + ' sec. (sending to slow!) median10: ' + @last.to_s + ' median3: ' +@last3.to_s if ( 0.019 - x.real ) <= 0
 		end
 	end
 
