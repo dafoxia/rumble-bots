@@ -68,7 +68,7 @@ class RobotizerBot
 		while !@cli.ready
 		end
         @cli.join_channel(channel)
-		@channelid = @cli.current_channel
+		@channelid = @cli.me.channel_id
 		@cli.on_text_message do |msg|
 			begin
 				message = msg.message.split(' ')
@@ -95,7 +95,7 @@ class RobotizerBot
 
 	def termbots
 		@mychilds.each_with_index do |zeit, index|
-			if ( zeit != nil ) && @activebots[index].connected then
+			if ( zeit != nil ) && @activebots[index].connected? then
 				@activebots[index].join_channel(@away) if  ( ( Time.now - zeit ) >= @awaytime )							# go to away if @awaytime seconds no audio from user appeared
 				@activebots[index].disconnect if ( ( Time.now - zeit) >= @disconnecttime ) 								# disconnect bot if @disconnecttime seconds no audio from user appeared
 			end
@@ -118,7 +118,7 @@ class RobotizerBot
 		
 		while @conn_and_join.size >= 1 do																				# if conn and join queue is not empty
 			index = @conn_and_join.pop																					# pop a user session number
-			if @activebots[index].connected == false then																# if bot not connected
+			if @activebots[index].connected? == false then																# if bot not connected
 				@activebots[index].connect																				# connect it to server
 				while !@activebots[index].ready
 				end																										# wait until we can join
@@ -126,7 +126,7 @@ class RobotizerBot
 				msg = @activebots[index].get_imgmsg('./icons/m2muser.png')
 				@activebots[index].set_comment msg
 			end
-			while @activebots[index].current_channel == nil 
+			while @activebots[index].me.channel_id == nil 
 				@activebots[index].join_channel(@homechannel)															# join channel
 			end
 		end
@@ -142,11 +142,11 @@ class RobotizerBot
 					if ( @cli.users.values_at(sessionid).[](0) != nil ) then
 						if ( @cli.users.values_at(sessionid).[](0).name[0..(@otherprefix.size - 1)] != @otherprefix ) then		# real user
 							if @activebots[sessionid] != nil then																# if bot exist
-								if ( @activebots[sessionid].connected ) then													# and connected
+								if ( @activebots[sessionid].connected? ) then													# and connected
 									speakersize = @cli.m2m_getsize sessionid
 									maxsize =  speakersize if speakersize >= maxsize
 									if maxsize >= 1 then
-										@activebots[sessionid].join_channel(@homechannel) if @activebots[sessionid].current_channel != @homechannel 
+										@activebots[sessionid].join_channel(@homechannel) if @activebots[sessionid].me.channel_id != @homechannel 
 										frame = ( @cli.m2m_getframe ( sessionid ) ).unpack ('s*')
 										newframe = []
 										frame.each_with_index do |sample, index|
@@ -169,8 +169,6 @@ class RobotizerBot
 		}
 		if ( 0.007 - x.real ) >= 0 then																						# full loop time should not exceed 0.01 s ( 10 ms)
 			sleep  ( 0.007 - x.real ) 																						# we'll keep it slightly shorter that we can hurry up if need
-		else
-			puts x.real.to_s + ' sec. critical (to long).'
 		end
 	end
 
