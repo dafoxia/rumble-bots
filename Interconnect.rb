@@ -25,6 +25,7 @@ require "mumble-ruby"
 require 'rubygems'
 require 'thread'
 require 'benchmark'
+include ObjectSpace
 
 class InterConnectBot
 	attr_reader :cli, :host, :port
@@ -63,6 +64,8 @@ class InterConnectBot
 		end
         @cli.join_channel(channel)
 		@channelid = @cli.me.channel_id
+		@away_id = @cli.find_channel(@away).channel_id
+		@home_id = @cli.find_channel(@homechannel).channel_id
 		@cli.on_text_message do |msg|
 			begin
 				message = msg.message.split(' ')
@@ -90,8 +93,14 @@ class InterConnectBot
 	def termbots
 		@mychilds.each_with_index do |zeit, index|
 			if ( zeit != nil ) && @activebots[index].connected? then
-				@activebots[index].join_channel(@away) if  ( ( Time.now - zeit ) >= @awaytime )							# go to away if @awaytime seconds no audio from user appeared
-				@activebots[index].disconnect if ( ( Time.now - zeit) >= @disconnecttime ) 								# disconnect bot if @disconnecttime seconds no audio from user appeared
+				# go to away if @awaytime seconds no audio from user appeared
+				if  ( ( Time.now - zeit ) >= @awaytime ) && ( ( Time.now - zeit ) <= @disconnecttime ) then
+					@activebots[index].join_channel(@away)
+				end
+				# disconnect bot if @disconnecttime seconds no audio from user appeared
+				if ( ( Time.now - zeit) >= @disconnecttime ) then
+					@activebots[index].disconnect
+				end
 			end
 		end
 		sleep 1
@@ -106,6 +115,7 @@ class InterConnectBot
 					conf.username = @prefix + @cli.users.values_at(index).[](0).name
 					conf.password = ""
 					conf.bitrate = @bitrate
+					puts "create user: " + @prefix + @cli.users.values_at(index).[](0).name
 				end
 			end
 		end
@@ -116,14 +126,17 @@ class InterConnectBot
 				@activebots[index].connect																				# connect it to server
 				while !@activebots[index].ready
 				end																										# wait until we can join
+				puts "connect user" + @activebots[index].me.name
 				@activebots[index].mumble2mumble false																	# activate bot
 				#msg = @activebots[index].get_imgmsg('./icons/m2muser.png')
 				#@activebots[index].set_comment msg
-			end
-			while @activebots[index].me.channel_id == nil 
-				if (@jointime.to_f + 0.5) <= Time.now.to_f then
-					@jointime = Time.new
-					@activebots[index].join_channel(@homechannel)															# join channel
+			else
+				while ( @activebots[index].me.channel_id != @home_id ) && ( @activebots[index].me.channel_id != @away_id ) 
+					if (@jointime.to_f + 0.5) <= Time.now.to_f then
+						@jointime = Time.new
+						@activebots[index].join_channel(@homechannel)							# join channel
+						puts "move " + @activebots[index].me.name + " to " + @homechannel
+					end
 				end
 			end
 		end
@@ -132,25 +145,24 @@ class InterConnectBot
 	
 	def playit 
 		speakers = @cli.m2m_getspeakers
-		maxsize =0
-		x = Benchmark.measure { 
+		x = Benchmark.measure {
 			speakers.each do |sessionid|
-				if ( @cli.users.values_at(sessionid).[](0) != nil ) then
-					if ( @cli.users.values_at(sessionid).[](0).name[0..(@otherprefix.size - 1)] != @otherprefix ) then		# real user
-						if @activebots[sessionid] != nil then																# if bot exist
-							if ( @activebots[sessionid].connected? ) then													# and connected
-								speakersize = @cli.m2m_getsize sessionid
-								maxsize =  speakersize if speakersize >= maxsize
-								if maxsize >= 1 then
-									@activebots[sessionid].join_channel(@homechannel) if @activebots[sessionid].me.channel_id != @homechannel 
-									frame = @cli.m2m_getframe sessionid		
-									@activebots[sessionid].m2m_writeframe frame 
-									@mychilds[sessionid] = Time.now
+				if ( sessionid != nil ) then
+					if ( @cli.users.values_at(sessionid).[](0) != nil ) then
+						if ( @cli.users.values_at(sessionid).[](0).name[0..(@otherprefix.size - 1)] != @otherprefix ) then	# real user
+							if @activebots[sessionid] != nil then	# if bot exist
+								if @cli.m2m_getsize(sessionid) >= 1 then
+									if ( @activebots[sessionid].connected? ) then	# and connected
+										@activebots[sessionid].join_channel(@homechannel) if @activebots[sessionid].me.current_channel != @homechannel
+										@activebots[sessionid].m2m_writeframe @cli.m2m_getframe sessionid	
+										@mychilds[sessionid] = Time.now
+									else
+										@conn_and_join << sessionid	# of not connected - fill in in connect queue
+									end
 								end
+							else	# if bot not exist
+								@create << sessionid	# fill in create queue
 							end
-							@conn_and_join << sessionid																		# of not connected - fill in in connect queue
-						else																								# if bot not exist
-							@create << sessionid																			# fill in create queue
 						end
 					end
 				end
@@ -177,8 +189,8 @@ end
 @server1_bitrate = 72000
 @server1_channel = "NatenomConnect"
 @server1_awaychan = "away"
-@server1_time2away = 60
-@server1_time2disconnect = 120
+@server1_time2away = 20
+@server1_time2disconnect = 50
 @server1_BotName = '↯' +@server1_name + '↯'
 
 @server2_name = "soa.chickenkiller.com"
@@ -186,9 +198,15 @@ end
 @server2_bitrate = 72000
 @server2_channel = "Interconnect"
 @server2_awaychan = "Interconnect"
-@server2_time2away = 60
-@server2_time2disconnect = 120
+@server2_time2away = 20
+@server2_time2disconnect = 50
 @server2_BotName = 'ᛏ' +@server2_name + 'ᛏ'
+
+
+#@win = Curses::Window.new(15,40,5,5)
+#@win.clear
+#@win.box("|","-")
+#@win.setpos(2,3)
 
 # BOT-NAME has to be different when spawn on one server!
 
@@ -208,12 +226,19 @@ msg1 = '<a href="mumble://' + client2.host.to_s + ':' + client2.port.to_s + '"><
 msg2 = '<a href="mumble://' + client1.host.to_s + ':' + client1.port.to_s + '"><h1>Interconnect-Bot</h1></a>' + client1.cli.get_imgmsg('./icons/mumble2mumble256x256.png')
 client1.cli.set_comment msg1
 client2.cli.set_comment msg2
-puts "running...  ctrl-d to end!"
+
+#@win.addstr "running...  ctrl-d to end!"
+puts "running... ctrl-d to end!"
+#@win.refresh
+sleep 1
+
 
 begin
 	t = Thread.new do
 		$stdin.gets
-          end
+		#@win.refresh
+		#@win.getch
+    end
 	t.join
 	rescue Interrupt => e
  end
