@@ -25,10 +25,9 @@ require "mumble-ruby"
 require 'rubygems'
 require 'thread'
 require 'benchmark'
-include ObjectSpace
 
 class InterConnectBot
-	attr_reader :cli, :host, :port
+	attr_reader :cli, :host, :port, :status
 	attr_writer :awaytime, :disconnecttime
     def initialize botname, bitrate, host, port
 		@host =	host
@@ -49,8 +48,6 @@ class InterConnectBot
 		@create	= Queue.new
 		@mychilds = []
 		@jointime = 0
-		@last = 0
-		@last3 = 0
     end
 
 	def connect channel, channel2, away, foreignhost, foreignport
@@ -61,6 +58,7 @@ class InterConnectBot
         @cli.connect
 		@away = away
 		while !@cli.ready
+			sleep 0.1
 		end
         @cli.join_channel(channel)
 		@channelid = @cli.me.channel_id
@@ -78,8 +76,8 @@ class InterConnectBot
 			end
 		end
 	end
-	
-    def get_ready 
+    
+	def get_ready 
 		@cli.mumble2mumble true
     end
 	
@@ -104,7 +102,6 @@ class InterConnectBot
 			end
 		end
 		sleep 1
-		
 	end
 	
 	def	speakerworker
@@ -115,7 +112,6 @@ class InterConnectBot
 					conf.username = @prefix + @cli.users.values_at(index).[](0).name
 					conf.password = ""
 					conf.bitrate = @bitrate
-					puts "create user: " + @prefix + @cli.users.values_at(index).[](0).name
 				end
 			end
 		end
@@ -125,17 +121,14 @@ class InterConnectBot
 			if @activebots[index].connected? == false then																# if bot not connected
 				@activebots[index].connect																				# connect it to server
 				while !@activebots[index].ready
+					sleep 0.1																							# sleep and not consume cpu-power
 				end																										# wait until we can join
-				puts "connect user" + @activebots[index].me.name
 				@activebots[index].mumble2mumble false																	# activate bot
-				#msg = @activebots[index].get_imgmsg('./icons/m2muser.png')
-				#@activebots[index].set_comment msg
 			else
 				while ( @activebots[index].me.channel_id != @home_id ) && ( @activebots[index].me.channel_id != @away_id ) 
 					if (@jointime.to_f + 0.5) <= Time.now.to_f then
 						@jointime = Time.new
-						@activebots[index].join_channel(@homechannel)							# join channel
-						puts "move " + @activebots[index].me.name + " to " + @homechannel
+						@activebots[index].join_channel(@homechannel)													# join channel
 					end
 				end
 			end
@@ -157,30 +150,25 @@ class InterConnectBot
 										@activebots[sessionid].m2m_writeframe @cli.m2m_getframe sessionid	
 										@mychilds[sessionid] = Time.now
 									else
-										@conn_and_join << sessionid	# of not connected - fill in in connect queue
+										@conn_and_join << sessionid														# of not connected - fill in in connect queue
 									end
 								end
-							else	# if bot not exist
-								@create << sessionid	# fill in create queue
+							else																						# if bot not exist
+								@create << sessionid																	# fill in create queue
 							end
 						end
 					end
 				end
 			end
 		}
-		@last = ( @last * 9 + x.real ) / 10
-		@last3 = ( @last *2 + x.real ) / 3
-		if ( 0.005 - x.real ) >= 0 then																						# full loop time should not exceed 0.01 s ( 10 ms)
-			sleep  ( 0.005 - x.real ) 																						# we'll keep it slightly shorter that we can hurry up if need
-		else
-			puts x.real.to_s + ' sec. (sending to slow!) median10: ' + @last.to_s + ' median3: ' +@last3.to_s if ( 0.019 - x.real ) <= 0
+		if ( 0.005 - x.real ) >= 0 then																					# full loop time should not exceed 0.01 s ( 10 ms)
+			sleep  ( 0.005 - x.real ) 																					# we'll keep it slightly shorter that we can hurry up if need
 		end
 	end
 
 	def spawn_thread(sym)
       Thread.new { loop { send sym } }
     end
-    
 end
 
 
@@ -203,13 +191,6 @@ end
 @server2_BotName = 'ᛏ' +@server2_name + 'ᛏ'
 
 
-#@win = Curses::Window.new(15,40,5,5)
-#@win.clear
-#@win.box("|","-")
-#@win.setpos(2,3)
-
-# BOT-NAME has to be different when spawn on one server!
-
 client1 = InterConnectBot.new @server1_BotName, @server2_bitrate, @server1_name, @server1_port
 client2 = InterConnectBot.new @server2_BotName, @server1_bitrate, @server2_name, @server2_port
 
@@ -227,18 +208,15 @@ msg2 = '<a href="mumble://' + client1.host.to_s + ':' + client1.port.to_s + '"><
 client1.cli.set_comment msg1
 client2.cli.set_comment msg2
 
-#@win.addstr "running...  ctrl-d to end!"
-puts "running... ctrl-d to end!"
-#@win.refresh
-sleep 1
+puts "running... ctrl-c to end!"
 
 
 begin
 	t = Thread.new do
-		$stdin.gets
-		#@win.refresh
-		#@win.getch
+		loop {
+			$stdin.gets
+		}
     end
 	t.join
-	rescue Interrupt => e
- end
+rescue Interrupt => e
+end
