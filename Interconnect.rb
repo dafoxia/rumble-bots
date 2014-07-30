@@ -13,11 +13,11 @@
 # You have to checkout 
 #  *  https://github.com/dafoxia/opus-ruby
 #  *  https://github.com/dafoxia/mumble-ruby
-#       -> mumble2mumble branch!
+#       -> celt_compatibility branch!
 #
 # Build and install gem opus-ruby first, then mumble-ruby
 #
-# I'm sure more help will be find on Natenom's Sites soon. ( http://natenom.name/ )
+# I'm sure more help will be find on Natenom's Sites soon. ( http://natenom.com/ )
 #
 #
 
@@ -105,10 +105,10 @@ class InterConnectBot
   end
   
   def  speakerworker
-    while @create.size >= 1 do                                             # if create-queue is not empty
-      index = @create.pop                                              # pop a user session number
-      if (@activebots[index] == nil) then                                      # if bot not exist
-        @activebots[index] = Mumble::Client.new(@foreignhost, @foreignport) do |conf|              # create bot socket
+    while @create.size >= 1 do                                                                                                                                  # if create-queue is not empty
+      index = @create.pop                                                                                                                                       # pop a user session number
+      if (@activebots[index] == nil) then                                                                                                                       # if bot not exist
+        @activebots[index] = Mumble::Client.new(@foreignhost, @foreignport) do |conf|                                                                           # create bot socket
           conf.username = @prefix + @cli.users.values_at(index).[](0).name
           conf.password = ""
           conf.bitrate = @bitrate
@@ -116,19 +116,19 @@ class InterConnectBot
       end
     end
 
-    while @conn_and_join.size >= 1 do                                        # if conn and join queue is not empty
-      index = @conn_and_join.pop                                          # pop a user session number
-      if @activebots[index].connected? == false then                                # if bot not connected
-        @activebots[index].connect                                        # connect it to server
+    while @conn_and_join.size >= 1 do                                                                                                                           # if conn and join queue is not empty
+      index = @conn_and_join.pop                                                                                                                                # pop a user session number
+      if @activebots[index].connected? == false then                                                                                                            # if bot not connected
+        @activebots[index].connect                                                                                                                              # connect it to server
         while !@activebots[index].ready
-          sleep 0.1                                              # sleep and not consume cpu-power
-        end                                                    # wait until we can join
-        @activebots[index].mumble2mumble false                                  # activate bot
+          sleep 0.1                                                                                                                                             # sleep and not consume cpu-power
+        end                                                                                                                                                     # wait until we can join
+        @activebots[index].mumble2mumble false                                                                                                                  # activate bot
       else
-        while ( @activebots[index].me.channel_id != @home_id ) && ( @activebots[index].me.channel_id != @away_id ) 
+        while ( @activebots[index].me.channel_id != @activebots[index].find_channel(@homechannel).channel_id ) && ( @activebots[index].me.channel_id != @activebots[index].find_channel(@away).channel_id ) 
           if (@jointime.to_f + 0.5) <= Time.now.to_f then
             @jointime = Time.new
-            @activebots[index].join_channel(@homechannel)                          # join channel
+            @activebots[index].join_channel(@homechannel)                                                                                                       # join channel
           end
         end
       end
@@ -142,27 +142,27 @@ class InterConnectBot
       speakers.each do |sessionid|
         if ( sessionid != nil ) then
           if ( @cli.users.values_at(sessionid).[](0) != nil ) then
-            if ( @cli.users.values_at(sessionid).[](0).name[0..(@otherprefix.size - 1)] != @otherprefix ) then  # real user
-              if @activebots[sessionid] != nil then  # if bot exist
+            if ( @cli.users.values_at(sessionid).[](0).name[0..(@otherprefix.size - 1)] != @otherprefix ) then                                                  # real user
+              if @activebots[sessionid] != nil then                                                                                                             # if bot exist
                 if @cli.m2m_getsize(sessionid) >= 1 then
-                  if ( @activebots[sessionid].connected? ) then  # and connected
+                  if ( @activebots[sessionid].connected? ) then                                                                                                 # and connected
                     @activebots[sessionid].join_channel(@homechannel) if @activebots[sessionid].me.current_channel != @homechannel
                     @activebots[sessionid].m2m_writeframe @cli.m2m_getframe sessionid  
                     @mychilds[sessionid] = Time.now
                   else
-                    @conn_and_join << sessionid                            # of not connected - fill in in connect queue
+                    @conn_and_join << sessionid                                                                                                                 # of not connected - fill in in connect queue
                   end
                 end
-              else                                            # if bot not exist
-                @create << sessionid                                  # fill in create queue
+              else                                                                                                                                              # if bot not exist
+                @create << sessionid                                                                                                                            # fill in create queue
               end
             end
           end
         end
       end
     }
-    if ( 0.005 - x.real ) >= 0 then                                          # full loop time should not exceed 0.01 s ( 10 ms)
-      sleep  ( 0.005 - x.real )                                           # we'll keep it slightly shorter that we can hurry up if need
+    if ( 0.005 - x.real ) >= 0 then                                                                                                                             # full loop time should not exceed 0.01 s ( 10 ms)
+      sleep  ( 0.005 - x.real )                                                                                                                                 # we'll keep it slightly shorter that we can hurry up if need
     end
   end
 
@@ -182,7 +182,6 @@ end
 @server1_time2away = 20
 @server1_time2disconnect = 50
 @server1_BotName = '↯' +@server1_name + '↯'
-
 @server2_name = "soa.chickenkiller.com"
 @server2_port = 64739
 @server2_bitrate = 72000
@@ -191,6 +190,11 @@ end
 @server2_time2away = 20
 @server2_time2disconnect = 50
 @server2_BotName = 'ᛏ' +@server2_name + 'ᛏ'
+@server2_BotName = 'ᛏ' +@server2_name + 'ᛏ'
+#----------------------------------------------------------
+#   ensure that all names are allowed on the server and 
+#   all channels exists!
+#   otherwise the bot will stutter or stop to work!
 #----------------------------------------------------------
 
 client1 = InterConnectBot.new @server1_BotName, @server2_bitrate, @server1_name, @server1_port
@@ -205,10 +209,10 @@ client2.get_ready
 client2.run @server1_BotName
 client1.run @server2_BotName
 
-msg1 = '<a href="mumble://' + client2.host.to_s + ':' + client2.port.to_s + '"><h1>Interconnect-Bot</h1></a>' + client2.cli.get_imgmsg('./icons/mumble2mumble256x256.png')
-msg2 = '<a href="mumble://' + client1.host.to_s + ':' + client1.port.to_s + '"><h1>Interconnect-Bot</h1></a>' + client1.cli.get_imgmsg('./icons/mumble2mumble256x256.png')
-client1.cli.set_comment msg1
-client2.cli.set_comment msg2
+#msg1 = '<a href="mumble://' + client2.host.to_s + ':' + client2.port.to_s + '"><h1>Interconnect-Bot</h1></a>' + client2.cli.get_imgmsg('./icons/mumble2mumble256x256.png')
+#msg2 = '<a href="mumble://' + client1.host.to_s + ':' + client1.port.to_s + '"><h1>Interconnect-Bot</h1></a>' + client1.cli.get_imgmsg('./icons/mumble2mumble256x256.png')
+#client1.cli.set_comment msg1
+#client2.cli.set_comment msg2
 
 puts "running... ctrl-c to end!"
 
@@ -216,7 +220,10 @@ puts "running... ctrl-c to end!"
 begin
   t = Thread.new do
     loop {
-      $stdin.gets
+      sleep 3
+      puts "Server with client1 uses codec: " + client1.cli.get_codec
+      puts "Server with client2 uses codec: " + client2.cli.get_codec
+
     }
     end
   t.join
