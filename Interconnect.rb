@@ -62,8 +62,6 @@ class InterConnectBot
     end
     @cli.join_channel(channel)
     @channelid = @cli.me.channel_id
-    @away_id = @cli.find_channel(@away).channel_id
-    @home_id = @cli.find_channel(@homechannel).channel_id
     @cli.on_text_message do |msg|
       begin
         message = msg.message.split(' ')
@@ -190,7 +188,7 @@ end
 @server2_time2away = 20
 @server2_time2disconnect = 50
 @server2_BotName = 'ᛏ' +@server2_name + 'ᛏ'
-@server2_BotName = 'ᛏ' +@server2_name + 'ᛏ'
+
 #----------------------------------------------------------
 #   ensure that all names are allowed on the server and 
 #   all channels exists!
