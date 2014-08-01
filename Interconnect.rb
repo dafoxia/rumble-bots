@@ -179,7 +179,7 @@ end
 @server1_awaychan = "away"
 @server1_time2away = 20
 @server1_time2disconnect = 50
-@server1_BotName = '↯' +@server1_name + '↯'
+@server1_BotName = @server1_name
 @server2_name = "soa.chickenkiller.com"
 @server2_port = 64739
 @server2_bitrate = 72000
@@ -187,7 +187,7 @@ end
 @server2_awaychan = "Interconnect"
 @server2_time2away = 20
 @server2_time2disconnect = 50
-@server2_BotName = 'ᛏ' +@server2_name + 'ᛏ'
+@server2_BotName = @server2_name
 
 #----------------------------------------------------------
 #   ensure that all names are allowed on the server and 
