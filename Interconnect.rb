@@ -102,7 +102,7 @@ class InterConnectBot
     sleep 1
   end
   
-  def  speakerworker
+  def speakerworker
     while @create.size >= 1 do                                                                                                                                  # if create-queue is not empty
       index = @create.pop                                                                                                                                       # pop a user session number
       if (@activebots[index] == nil) then                                                                                                                       # if bot not exist
@@ -200,6 +200,8 @@ client2 = InterConnectBot.new @server2_BotName, @server1_bitrate, @server2_name,
 
 client1.connect @server1_channel, @server2_channel, @server2_awaychan, client2.host, client2.port
 client2.connect @server2_channel, @server1_channel, @server1_awaychan, client1.host, client1.port
+
+sleep 3     # wait 3 seconds to ensure desired channel is reached by bot
 
 client1.get_ready 
 client2.get_ready
