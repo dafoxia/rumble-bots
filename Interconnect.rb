@@ -1,26 +1,5 @@
 #!/usr/bin/env ruby
 
-# Inspired from https://github.com/SuperTux88/mumble-bots/blob/master/mumble-music.rb and changed, and changed, and changed
-# maybe Code differs more then parts are similar. BTW! only a part of this code is grown in my own brain :@)
-
-# IMPORTANT!
-#  At your server had to exist a channel named 'away' and the bots MUST have permission to enter this channel.
-#  The bots are automatically created, so you have no chance to register it all :) 
-#  Kicking one bot will result in an error and all bots will leave. (They are one family)
-#
-# What is needed?
-#
-# You have to checkout 
-#  *  https://github.com/dafoxia/opus-ruby
-#  *  https://github.com/dafoxia/mumble-ruby
-#       -> celt_compatibility branch!
-#
-# Build and install gem opus-ruby first, then mumble-ruby
-#
-# I'm sure more help will be find on Natenom's Sites soon. ( http://natenom.com/ )
-#
-#
-
 require "mumble-ruby"
 require 'rubygems'
 require 'thread'
