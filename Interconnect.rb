@@ -42,7 +42,7 @@ class InterConnectBot
       conf.bitrate = bitrate
     end
     @bitrate = bitrate
-    @prefix = botname
+    @prefix = botname + "_"
     @activebots = []
     @conn_and_join  = Queue.new
     @create  = Queue.new
@@ -179,7 +179,7 @@ end
 @server1_awaychan = "away"
 @server1_time2away = 20
 @server1_time2disconnect = 50
-@server1_BotName = '↯' +@server1_name + '↯'
+@server1_BotName = @server1_name
 @server2_name = "soa.chickenkiller.com"
 @server2_port = 64739
 @server2_bitrate = 72000
@@ -187,7 +187,7 @@ end
 @server2_awaychan = "Interconnect"
 @server2_time2away = 20
 @server2_time2disconnect = 50
-@server2_BotName = 'ᛏ' +@server2_name + 'ᛏ'
+@server2_BotName = @server2_name
 
 #----------------------------------------------------------
 #   ensure that all names are allowed on the server and 
@@ -207,21 +207,34 @@ client2.get_ready
 client2.run @server1_BotName
 client1.run @server2_BotName
 
-#msg1 = '<a href="mumble://' + client2.host.to_s + ':' + client2.port.to_s + '"><h1>Interconnect-Bot</h1></a>' + client2.cli.get_imgmsg('./icons/mumble2mumble256x256.png')
-#msg2 = '<a href="mumble://' + client1.host.to_s + ':' + client1.port.to_s + '"><h1>Interconnect-Bot</h1></a>' + client1.cli.get_imgmsg('./icons/mumble2mumble256x256.png')
-#client1.cli.set_comment msg1
-#client2.cli.set_comment msg2
+@debug = true
+@set_comment_available = false
+
+msg1 = '<a href="mumble://' + client2.host.to_s + ':' + client2.port.to_s + '"><h1>Interconnect-Bot</h1></a>' + client2.cli.get_imgmsg('./icons/mumble2mumble256x256.png')
+msg2 = '<a href="mumble://' + client1.host.to_s + ':' + client1.port.to_s + '"><h1>Interconnect-Bot</h1></a>' + client1.cli.get_imgmsg('./icons/mumble2mumble256x256.png')
+
+begin
+	client1.cli.set_comment msg1
+	client2.cli.set_comment msg2
+	@set_comment_available = true
+rescue NoMethodError
+	if @debug
+		puts "#{$!}"
+	end
+
+	@set_comment_available = false
+end
 
 puts "running... ctrl-c to end!"
-
 
 begin
   t = Thread.new do
     loop {
       sleep 3
-      puts "Server with client1 uses codec: " + client1.cli.get_codec
-      puts "Server with client2 uses codec: " + client2.cli.get_codec
-
+      if @debug
+	puts "Server with client1 uses codec: " + client1.cli.get_codec
+	puts "Server with client2 uses codec: " + client2.cli.get_codec
+      end
     }
     end
   t.join
