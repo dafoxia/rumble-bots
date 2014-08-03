@@ -1,5 +1,9 @@
 #!/usr/bin/env ruby
 
+#   Instructions and help for this piece of Software you can get at:
+#       *  http://wiki.natenom.de/mumble/audiobots/interconnect-bot-mumble-ruby                 (german)
+#       *  http://wiki.natenom.com/w/Interconnect-Bot                                           (english) 
+
 require "mumble-ruby"
 require 'rubygems'
 require 'thread'
