@@ -100,6 +100,10 @@ class InterConnectBot
     while @conn_and_join.size >= 1 do                                                                                                                           # if conn and join queue is not empty
       index = @conn_and_join.pop                                                                                                                                # pop a user session number
       if @activebots[index].connected? == false then                                                                                                            # if bot not connected
+         begin
+            @activebots[index].disconnect
+        rescue
+        end
         @activebots[index].connect                                                                                                                              # connect it to server
         while !@activebots[index].ready
           sleep 0.1                                                                                                                                             # sleep and not consume cpu-power
