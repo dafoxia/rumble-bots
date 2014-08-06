@@ -126,6 +126,7 @@ class InterConnectBot
     x = Benchmark.measure {
       speakers.each do |sessionid|
         if ( sessionid != nil ) then
+          @activebots[sessionid].disconnect if ( @cli.users[sessionid] == nil ) && ( @activebots[sessionid] != nil )
           if ( @cli.users.values_at(sessionid).[](0) != nil ) then
             if ( @cli.users.values_at(sessionid).[](0).name[0..(@otherprefix.size - 1)] != @otherprefix ) then                                                  # real user
               if @activebots[sessionid] != nil then                                                                                                             # if bot exist
