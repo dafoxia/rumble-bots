@@ -14,6 +14,7 @@ class InterConnectBot2
     def initialize botname, bitrate, host, port, pass, fhost, fport, fpass
         @fhost = fhost
         @fport = fport
+	@fpass = fpass
         @myname = botname
         @awaytime = 60
         @disconnecttime = 120
